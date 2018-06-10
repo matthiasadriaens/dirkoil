@@ -48,11 +48,11 @@ stations$id <- c(1:nrow(stations))
 
 #ASSIGN MAP COLORS TO THE STATIONS DATAFRAME
 stations$mapcolor <- ifelse(stations$stationtype == "terminal","#ff0000",
-                            ifelse(stations$stationtype == "lng","#00cc66",
-                                   ifelse(stations$stationtype == "cng", "#ffff00",
-                                          ifelse(stations$stationtype == "petrol","#3399ff","null"))))
-pal <- c()
-
+                            ifelse(stations$stationtype == "lng","#feb236",
+                                   ifelse(stations$stationtype == "cng", "#00ffbf",
+                                          ifelse(stations$stationtype == "petrol","#622569","null"))))
+palcustom <- c("#ff0000","#feb236","#00ffbf","#622569")
+labcustom <- c("Termial","#LNG","CNG","Petrol")
 
 function(input, output, session) {
 
@@ -81,16 +81,59 @@ function(input, output, session) {
       latitude >= latRng[1] & latitude <= latRng[2] &
         longitude >= lngRng[1] & longitude <= lngRng[2])
   })
-
-
-
+  leafletProxy("map",data = stations)%>%
+    addLegend("bottomright", colors = palcustom, labels = labcustom,
+              title = "Station Legend",
+              opacity = 1
+    )
 
   # This observer is responsible for maintaining the circles and legend,
   # Color of dots based on type of station
+  # Selection given for requested data
   observe({
-    leafletProxy("map",data = stations)%>%
-          clearShapes() %>%
-          addCircles(~lon, ~lat,layerId=~id,radius = input$dot*10,color = ~mapcolor)
+
+    if(input$petrol == TRUE & input$cng == TRUE & input$lng == TRUE){
+      leafletProxy("map",data = stations)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    } else if(input$petrol == FALSE & input$cng == FALSE & input$lng == FALSE){
+      stationssubset <- stations[stations$stationtype == "terminal",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    } else if(input$petrol == TRUE & input$cng == FALSE & input$lng == FALSE){
+      stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    }else if(input$petrol == FALSE & input$cng == TRUE & input$lng == FALSE){
+      stationssubset <- stations[stations$stationtype == "cng" | stations$stationtype == "terminal",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    }else if(input$petrol == FALSE & input$cng == FALSE & input$lng == TRUE){
+      stationssubset <- stations[stations$stationtype == "lng" | stations$stationtype == "terminal",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    }else if(input$petrol == TRUE & input$cng == TRUE & input$lng == FALSE){
+      stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal" | stations$stationtype == "cng",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    }else if(input$petrol == TRUE & input$cng == FALSE & input$lng == TRUE){
+      stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal" | stations$stationtype == "lng",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    }else if(input$petrol == FALSE & input$cng == TRUE & input$lng == TRUE){
+      stationssubset <- stations[stations$stationtype == "cng" | stations$stationtype == "terminal" | stations$stationtype == "lng",]
+      leafletProxy("map",data = stationssubset)%>%
+        clearShapes() %>%
+        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+    }
+
+
   })
 
   # Show a popup at the given location

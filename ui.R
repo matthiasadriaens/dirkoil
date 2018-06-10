@@ -24,17 +24,18 @@ navbarPage("DIRKOIL LNG Case", id="nav",
       leafletOutput("map", width="100%", height="100%"),
 
       # Shiny versions prior to 0.11 should use class = "modal" instead.
-      absolutePanel(id = "controls", class = "panel panel-default",
-        draggable = TRUE, top = 350, left = "auto", right = 1350, bottom = "auto",
-        width = 330, height = "auto",
+      absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+                    draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
+                    width = 330, height = "auto",
 
-        h2("Variable explorer"),
-
-        selectInput("color", "Color", vars),
-        selectInput("size", "Size", vars, selected = "adultpop"),
+        h2("Explorer"),
+        h3("Data selection"),
+        checkboxInput('petrol', 'Petrol',value = TRUE),
+        checkboxInput('cng', 'CNG', value = TRUE),
+        checkboxInput('lng', 'LNG', value = TRUE),
+        h3("Variable input"),
         sliderInput("kms", "Truck distance:",min = 0, max = 900, value = 400),
-        sliderInput("station", "Station distance:",min = 0, max = 900, value = 400),
-        sliderInput("dot", "Dot radius (in m):",min = 1, max = 1000, value = 10)
+        sliderInput("station", "Station distance:",min = 0, max = 900, value = 400)
       ),
 
       tags$div(id="cite",
