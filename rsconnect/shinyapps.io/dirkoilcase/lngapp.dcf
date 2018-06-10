@@ -5,6 +5,6 @@ account: dirkoilcase
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 358477
-bundleId: 1421467
+bundleId: 1421528
 url: https://dirkoilcase.shinyapps.io/lngapp/
-when: 1528655368.13667
+when: 1528659969.23314

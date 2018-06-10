@@ -52,7 +52,7 @@ stations$mapcolor <- ifelse(stations$stationtype == "terminal","#ff0000",
                                    ifelse(stations$stationtype == "cng", "#00ffbf",
                                           ifelse(stations$stationtype == "petrol","#622569","null"))))
 palcustom <- c("#ff0000","#feb236","#00ffbf","#622569")
-labcustom <- c("Termial","#LNG","CNG","Petrol")
+labcustom <- c("Terminal","LNG","CNG","Petrol")
 
 function(input, output, session) {
 
@@ -83,9 +83,15 @@ function(input, output, session) {
   })
   leafletProxy("map",data = stations)%>%
     addLegend("bottomright", colors = palcustom, labels = labcustom,
-              title = "Station Legend",
+              title = "Fueling stations",
               opacity = 1
-    )
+    )%>%
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479")
 
   # This observer is responsible for maintaining the circles and legend,
   # Color of dots based on type of station
