@@ -24,28 +24,23 @@ navbarPage("DIRKOIL LNG Case", id="nav",
       leafletOutput("map", width="100%", height="100%"),
 
       # Shiny versions prior to 0.11 should use class = "modal" instead.
-      absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
+      absolutePanel(id = "controls", class = "panel panel-default",
         draggable = TRUE, top = 350, left = "auto", right = 1350, bottom = "auto",
         width = 330, height = "auto",
 
-        h2("DirkOil Explorer"),
+        h2("Variable explorer"),
 
         selectInput("color", "Color", vars),
         selectInput("size", "Size", vars, selected = "adultpop"),
-        sliderInput("kms", "Truck distance:",min = 0, max = 900, value = 400)
-
-        #CONDITIONAL PROMPT
-        #conditionalPanel("input.color == 'superzip' || input.size == 'superzip'",
-          # Only prompt for threshold when coloring or sizing by superzip
-        #  numericInput("threshold", "SuperZIP threshold (top n percentile)", 5)
-        #)
-
+        sliderInput("kms", "Truck distance:",min = 0, max = 900, value = 400),
+        sliderInput("station", "Station distance:",min = 0, max = 900, value = 400),
+        sliderInput("dot", "Dot radius (in m):",min = 1, max = 1000, value = 10)
       ),
 
       tags$div(id="cite",
-        'Data provided for the predictive and prescriptive course master Businesse engineering in Data analytics for the DirkOil Case'
+        'DirkOil a LNG case, by Adriaens Matthias, Lauwers Diederick, Serrarens Simon & Van Essche Maarten'
       )
-    )
+    ),tags$head(tags$link(rel="shortcut icon", href="favicon.ico"))
   ),
 
   tabPanel("Data explorer",

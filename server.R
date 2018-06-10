@@ -10,7 +10,49 @@ zipdata <- allzips[sample.int(nrow(allzips), 10000),]
 # By ordering by centile, we ensure that the (comparatively rare) SuperZIPs
 # will be drawn last and thus be easier to see
 zipdata <- zipdata[order(zipdata$centile),]
+
+vars <- c("id","lon","lat","fueltype","stationtype","name","status")
 terminals <- read.csv("data/terminals.csv")
+terminals$fueltype <- rep(0,nrow(terminals))
+terminals$stationtype <- rep("terminal",nrow(terminals))
+terminals$fueltype <- rep(0,nrow(terminals))
+terminals$status <- rep("active",nrow(terminals))
+term <- terminals[,c(1,3,4,5,6,2,7)]
+names(term) <- vars
+stations <- term
+
+load("data/lng.Rdata")
+lngStations$country <- NULL
+lngStations$id <- c(1:nrow(lngStations))
+lngStations$stationtype <- rep("lng",nrow(lngStations))
+lng <- lngStations[,c(6,5,4,3,7,1,2)]
+names(lng) <- vars
+stations <- rbind(stations,lng)
+
+load("data/cng.Rdata")
+cngStations$country <- NULL
+cngStations$stationtype <- rep("cng",nrow(cngStations))
+cngStations$id <- c(1:nrow(cngStations))
+cng <- cngStations[,c(7,5,4,3,6,1,2)]
+names(cng) <- vars
+stations <- rbind(stations,cng)
+
+load("data/petrol.Rdata")
+petrolStations$stationtype <- rep("petrol",nrow(petrolStations))
+petrolStations$status <-  rep("active",nrow(petrolStations))
+petrolStations$id <- c(1:nrow(petrolStations))
+petrol <- petrolStations[,c(7,3,2,4,5,1,6)]
+names(petrol) <- vars
+stations <- rbind(stations,petrol)
+stations$id <- c(1:nrow(stations))
+
+#ASSIGN MAP COLORS TO THE STATIONS DATAFRAME
+stations$mapcolor <- ifelse(stations$stationtype == "terminal","#ff0000",
+                            ifelse(stations$stationtype == "lng","#00cc66",
+                                   ifelse(stations$stationtype == "cng", "#ffff00",
+                                          ifelse(stations$stationtype == "petrol","#3399ff","null"))))
+pal <- c()
+
 
 function(input, output, session) {
 
@@ -40,112 +82,51 @@ function(input, output, session) {
         longitude >= lngRng[1] & longitude <= lngRng[2])
   })
 
-  # Precalculate the breaks we'll need for the two histograms
-  centileBreaks <- hist(plot = FALSE, allzips$centile, breaks = 20)$breaks
 
-  output$histCentile <- renderPlot({
-    # If no zipcodes are in view, don't plot
-    if (nrow(zipsInBounds()) == 0)
-      return(NULL)
 
-    hist(zipsInBounds()$centile,
-      breaks = centileBreaks,
-      main = "SuperZIP score (visible zips)",
-      xlab = "Percentile",
-      xlim = range(allzips$centile),
-      col = '#00DD00',
-      border = 'white')
-  })
-
-  output$scatterCollegeIncome <- renderPlot({
-    # If no zipcodes are in view, don't plot
-    if (nrow(zipsInBounds()) == 0)
-      return(NULL)
-
-    print(xyplot(income ~ college, data = zipsInBounds(), xlim = range(allzips$college), ylim = range(allzips$income)))
-  })
 
   # This observer is responsible for maintaining the circles and legend,
-  # according to the variables the user has chosen to map to color and size.
+  # Color of dots based on type of station
   observe({
-    colorBy <- input$color
-    sizeBy <- input$size
-
-    if (colorBy == "superzip") {
-      # Color and palette are treated specially in the "superzip" case, because
-      # the values are categorical instead of continuous.
-      colorData <- ifelse(zipdata$centile >= (100 - input$threshold), "yes", "no")
-      pal <- colorFactor("viridis", colorData)
-    } else {
-      colorData <- zipdata[[colorBy]]
-      pal <- colorBin("viridis", colorData, 7, pretty = FALSE)
-    }
-
-    if (sizeBy == "superzip") {
-      # Radius is treated specially in the "superzip" case.
-      radius <- ifelse(zipdata$centile >= (100 - input$threshold), 30000, 3000)
-    } else {
-      radius <- zipdata[[sizeBy]] / max(zipdata[[sizeBy]]) * 30000
-    }
-
-#    leafletProxy("map", data = zipdata) %>%
-#      clearShapes() %>%
-#      addCircles(~longitude, ~latitude, radius=radius, layerId=~zipcode,
-#        stroke=FALSE, fillOpacity=0.4, fillColor=pal(colorData)) %>%
-#      addLegend("bottomleft", pal=pal, values=colorData, title=colorBy,
-#        layerId="colorLegend")
-
-    leafletProxy("map",data = terminals)%>%
-           clearShapes() %>%
-          addCircles(~lon, ~lat,layerId=~terminal_id)
+    leafletProxy("map",data = stations)%>%
+          clearShapes() %>%
+          addCircles(~lon, ~lat,layerId=~id,radius = input$dot*10,color = ~mapcolor)
   })
 
-
   # Show a popup at the given location
-  showZipcodePopup <- function(terminalId, lat, lng) {
-    selectedTerminal <- terminals[terminals$terminal_id == terminalId,]
-    content <- as.character(tagList(
-      tags$h3("Terminal info"),
-      tags$h6("Name: ",selectedTerminal$name_terminal),
-      tags$h6("Longitude: ",selectedTerminal$lon),
-      tags$h6("Latitude: ",selectedTerminal$lat)
-    ))
-    leafletProxy("map") %>% addPopups(lng, lat, content, layerId = terminalId)
+  showStationPopup <- function(id, lat, lng) {
+    station <- stations[stations$id == id,]
+
+    if(station$stationtype == "terminal"){
+      content <- as.character(tagList(
+        tags$h3("Terminal info"),
+        tags$h6("Name: ",station$name),
+        tags$h6("Longitude: ",station$lon),
+        tags$h6("Latitude: ",station$lat)
+      ))
+    }else{
+      content <- as.character(tagList(
+        tags$h3("Station info"),
+        tags$h6("Name: ",station$name),
+        tags$h6("Fueltype: ", station$fueltype),
+        tags$h6("Status: ",station$status),
+        tags$h6("Longitude: ",station$lon),
+        tags$h6("Latitude: ",station$lat)
+      ))
+    }
+    leafletProxy("map") %>% addPopups(lng, lat, content, layerId = id)
   }
 
-  # When map is clicked, show a popup with city info
+  # When a dot is clicked show info on station
   observe({
     leafletProxy("map") %>% clearPopups()
     event <- input$map_shape_click
     if (is.null(event))
       return()
-
     isolate({
-      showZipcodePopup(event$id, event$lat, event$lng)
+      showStationPopup(event$id, event$lat, event$lng)
     })
   })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
