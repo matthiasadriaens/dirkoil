@@ -11,7 +11,7 @@ vars <- c(
 
 navbarPage("DIRKOIL LNG Case", id="nav",
 
-  tabPanel("Interactive map",
+  tabPanel("Interactive station map",
     div(class="outer",
 
       tags$head(
@@ -38,7 +38,7 @@ navbarPage("DIRKOIL LNG Case", id="nav",
                     c("Cars and Trucks" = "all traffic",
                       "Trucks only" = "trucks",
                       "Cars only" = "cars")),
-        sliderInput("numlng", "Number of LNGs:",min = 0, max = 10, value = 5),
+        sliderInput("numlng", "Number of stations:",min = 0, max = 10, value = 5),
         sliderInput("kms", "Truck distance:",min = 0, max = 900, value = 400),
         sliderInput("station", "Station distance:",min = 0, max = 40, value = 20),
         actionButton("solution", "GENERATE SOLUTION")
@@ -50,30 +50,7 @@ navbarPage("DIRKOIL LNG Case", id="nav",
     ),tags$head(tags$link(rel="shortcut icon", href="favicon.ico"))
   ),
 
-  tabPanel("Basetable explorer",
-    fluidRow(
-      column(3,
-        selectInput("states", "States", c("All states"="", structure(state.abb, names=state.name), "Washington, DC"="DC"), multiple=TRUE)
-      ),
-      column(3,
-        conditionalPanel("input.states",
-          selectInput("cities", "Cities", c("All cities"=""), multiple=TRUE)
-        )
-      ),
-      column(3,
-        conditionalPanel("input.states",
-          selectInput("zipcodes", "Zipcodes", c("All zipcodes"=""), multiple=TRUE)
-        )
-      )
-    ),
-    fluidRow(
-      column(1,
-        numericInput("minScore", "Min score", min=0, max=100, value=0)
-      ),
-      column(1,
-        numericInput("maxScore", "Max score", min=0, max=100, value=100)
-      )
-    ),
+  tabPanel("Station explorer",
     hr(),
     DT::dataTableOutput("ziptable")
   ),
@@ -92,39 +69,37 @@ navbarPage("DIRKOIL LNG Case", id="nav",
                  img(src = "logo_full.png", height = 100, width = 270),
                  br(),
                  br(),
-                 "App built by: Adriaens Matthias, Lauwers Diederick, Serrarens Simon & Van Essche Maarten"
+                 "App built by: Adriaens Matthias, Lauwers Diederik, Serrarens Simon & Van Essche Maarten"
                ),
                mainPanel(
-                 h1("Introducing DirkOil"),
-                 p("Shiny is a new package from RStudio that makes it ",
-                   em("incredibly easy "),
-                   "to build interactive web applications with R."),
-                 br(),
-                 p("For an introduction and live examples, visit the ",
-                   a("Shiny homepage.",
-                     href = "http://shiny.rstudio.com")),
-                 br(),
-                 h2("Interactive Map"),
-                 h4("Data input"),
-                 h4("Variable input"),
+                 h3("Application overview"),
+                 h4("Data selection"),
+                 p("It is here possible to set the type of station that the user wants to see on the map. The terminals are always
+                   displayed, even if all the checkboxes are unchecked. It is possible to toggle LNG,CNG and petrol station. Each of 
+                   the different type of stations are also clickable. A popup will show when the user clicks te map.
+                   This makes the map more interactive and gives the user a richer experience when exploring the possibilities."),
+                 h4("Competition"),
+                 p("Competition is a true or false variable that takes the existing lng-station in mind when suggesting new LNG places."),
+                 h4("Target"),
+                 p("The target of the aloright is a checkbox where the user can decide to only incorporate trucks, cars or both of them.
+                   The application suggests different solutions for different targets."),
+                 h4("Number of stations"),
+                 p("The number of stations is the number of stations that managment is looking to build. The application will suggest 
+                   the here predefined number of stations on the map. It will also link those stations to the nearest terminal."),
+                 h4("Truck distance"),
+                 p("This is a contraint in our linear programm for which distance the trucks are limited in driving between the 
+                   LNG-station and the terminal"),
+                 h4("Station distance"),
+                 p("This parameter allows the user to set the minimum distance between the newly generated stations. This 
+                   distance is defined in bird's eye view."),
                  h4("Measure tool"),
                  p("This is a little tool that is provided. You can find in in the bottom left of the page.
                    It is a nifty tool to measure linear distances and areas.
                    Multiple measurements can be taken in order to compare areas and distances in order to enhace the decision making
-                   process"),
-                 h2("Basetable explorer")
+                   process")
                )
              )
            )
-
-
-
-
-
-
-
-
-
            ),
   conditionalPanel("false", icon("crosshair"))
 )
