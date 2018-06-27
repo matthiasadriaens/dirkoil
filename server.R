@@ -1,14 +1,20 @@
+if(!require(leaflet, quietly = TRUE)) install.packages('leaflet') ; require(leaflet, quietly = TRUE)
+if(!require(RColorBrewer, quietly = TRUE)) install.packages('RColorBrewer') ; require(RColorBrewer, quietly = TRUE)
+if(!require(scales, quietly = TRUE)) install.packages('scales') ; require(scales, quietly = TRUE)
+if(!require(lattice, quietly = TRUE)) install.packages('lattice') ; require(lattice, quietly = TRUE)
+if(!require(dplyr, quietly = TRUE)) install.packages('dplyr') ; require(dplyr, quietly = TRUE)
+if(!require(DT, quietly = TRUE)) install.packages('DT') ; require(DT, quietly = TRUE)
+
 library(leaflet)
 library(RColorBrewer)
 library(scales)
 library(lattice)
 library(dplyr)
-
-
+library(DT)
 
 
 # Leaflet bindings are a bit slow; for now we'll just sample to compensate
-load("data/Roads.Rdata")
+load("data/Roads.RData")
 set.seed(100)
 zipdata <- allzips[sample.int(nrow(allzips), 10000),]
 # By ordering by centile, we ensure that the (comparatively rare) SuperZIPs
@@ -151,8 +157,15 @@ function(input, output, session) {
     
     #We wont take the first 6 stations, as these are the terminals.
     # stations 7 and 8 are the existing LNG stations, we include these as their location
-    # needs to be taken into account. DIT MOET NOG INGEVOEGD WORDEN
-    DC <- clean_basetable[(7+2):(6+2+nr_of_stations),]
+    # needs to be taken into account. 
+    
+    #For the starting stations, we provide a list of 10 suitable startpositions (based on gut feeling)
+    #The number of stations taken from this list is specified by the user, with a maximum of 10
+    
+    
+    #DC <- clean_basetable[(7+2):(6+2+nr_of_stations),]
+    DC <- data.frame("lon" = c(4.255387, 4.288302, 3.843541, 4.389111, 4.674142, 4.301696, 5.474798, 4.011908, 4.43376, 4.8212026), "lat" = c(50.880937, 51.183174, 50.970936, 51.180704, 50.874973, 50.778507, 50.678347, 51.094534, 50.4513, 50.472375))
+    DC <- DC[1:nr_of_stations,]
     
     coordinates <- c(DC$lon,DC$lat)
     total_traffic <- sum(as.numeric(DC$total_daily_avg))
@@ -221,6 +234,7 @@ function(input, output, session) {
       distance_terminals <- gDistance(sp.clean_terminals_alg,sp.df_opt_station_coor, byid=T)
       #Multiply these distances with 110, our conversion rate
       distance_terminals <- distance_terminals*110
+      
       #Turn the values into a "1" if it is smaller than the max distance, "0" otherwise
       distance_terminals <- apply(distance_terminals, 2, function(x) ifelse(x>max_truck_distance, 0, 1))
       
@@ -241,6 +255,7 @@ function(input, output, session) {
       distance_stat <- gDistance(sp.df_opt_station_coor, byid=T)
       # 1 degree equals 110 km 
       distance_stat <- distance_stat*110
+      
       # replace all distances higher than given radius with zero, the rest with 1
       distance_stat <- apply(distance_stat, 2, function(x) ifelse(x > radius, 0, 1))
       rijsommeke <- rowSums(distance_stat)
@@ -253,9 +268,9 @@ function(input, output, session) {
       return(-opt)
     }
     
-    model <- rbga(stringMin = coordinates - 0.1, 
-                  stringMax = coordinates + 0.1, 
-                  popSize = 50, iters = 30, 
+    model <- rbga(stringMin = coordinates - 0.2, 
+                  stringMax = coordinates + 0.2, 
+                  popSize = 50, iters = 10, 
                   mutationChance = 0.01, evalFunc = fn, 
                   verbose   = TRUE)
     
@@ -274,7 +289,7 @@ function(input, output, session) {
     coordinates(sp.clean_basetable) <- ~lon+lat
     coordinates(sp.df_coordinates_OPT) <- ~ X1 + X2
     
-    distance_OPT <- gDistance(sp.clean_basetable,sp.df_coordinates_OPT, byid=T)
+    distance_OPT <- distm(sp.df_coordinates_OPT,sp.clean_basetable, fun = distGeo)
     
     
     #create a table that contains the optimal stations, based on the algorithm
@@ -291,7 +306,7 @@ function(input, output, session) {
     coordinates(sp.clean_terminals) <- ~lon+lat
     
     #create pairwise distance
-    distance_terminals <- gDistance(sp.clean_terminals,sp.df_optimal_stations, byid=T)
+    distance_terminals <- distm(sp.df_optimal_stations,sp.clean_terminals, fun = distGeo)
     
     # alle distances zijn nu berekend, minimum distance van optimaal gasstation naar 'terminal' nemen
     min.terminals <- apply(distance_terminals, 1, function(x) order(x, decreasing=F)[1])
@@ -321,181 +336,181 @@ function(input, output, session) {
     output_df$status.y <- NULL
     output_df$cars.x <- output_df$cars.y <- NULL
     
- 
+    
     #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     map <- leafletProxy("map",data = output_df)
     
     map %>%
-      clearShapes() %>%
-      clearMarkers() %>%
-      addMarkers(data = output_df,~lon.x, ~lat.x,layerId=~id) %>%
-      addAwesomeMarkers(data = output_df,~lon.y, ~lat.y,layerId=~min.terminals_join,icon = gasicon) 
-      for(i in 1:nrow(output_df)){
-        map %>% addPolylines(data= output_df,
-                             lat = as.numeric(output_df[i, c(4, 7)]),
-                             lng = as.numeric(output_df[i, c(3, 6)]),
-                             weight = 2,
-                             color = "#66ccff",
-                             layerId = ~min.terminals_join+1)
-      }
-      #addPolylines(data = output_df, lng = ~lon.x, lat = ~lat.x,color = "#66ccff",weight = 1,layerId = ~min.terminals_join+1)
-  })
-  
-  #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  
-  ## Interactive Map ###########################################
-  #gasicon = makeIcon("gas.png", 50, 50)
-  gasicon <- awesomeIcons(
-    icon = 'car',
-    iconColor = 'black',
-    library = 'ion',
-    markerColor = '#ff0000'
-  )
-  
-  # Create the map
-  output$map <- renderLeaflet({
-    leaflet() %>%
-      addTiles(
-        urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
-        attribution = 'Maps by <a href="http://www.mapbox.com/">Mapbox</a>'
-      ) %>%
-      setView(lng = 4.9, lat = 50.45, zoom = 8.2)
-  })
-  
-  # A reactive expression that returns the set of zips that are
-  # in bounds right now
-  zipsInBounds <- reactive({
-    if (is.null(input$map_bounds))
-      return(zipdata[FALSE,])
-    bounds <- input$map_bounds
-    latRng <- range(bounds$north, bounds$south)
-    lngRng <- range(bounds$east, bounds$west)
-    
-    subset(zipdata,
-           latitude >= latRng[1] & latitude <= latRng[2] &
-             longitude >= lngRng[1] & longitude <= lngRng[2])
-  })
-  leafletProxy("map",data = stations)%>%
-    addLegend("bottomright", colors = palcustom, labels = labcustom,
-              title = "Fueling stations",
-              opacity = 1
-    )%>%
-    addMeasure(
-      position = "bottomleft",
-      primaryLengthUnit = "meters",
-      primaryAreaUnit = "sqmeters",
-      activeColor = "#3D535D",
-      completedColor = "#7D4479")
-  
-  # This observer is responsible for maintaining the circles and legend,
-  # Color of dots based on type of station
-  # Selection given for requested data
-  observe({
-    
-    if(input$petrol == TRUE & input$cng == TRUE & input$lng == TRUE){
-      leafletProxy("map",data = stations)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    } else if(input$petrol == FALSE & input$cng == FALSE & input$lng == FALSE){
-      stationssubset <- stations[stations$stationtype == "terminal",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    } else if(input$petrol == TRUE & input$cng == FALSE & input$lng == FALSE){
-      stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    }else if(input$petrol == FALSE & input$cng == TRUE & input$lng == FALSE){
-      stationssubset <- stations[stations$stationtype == "cng" | stations$stationtype == "terminal",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    }else if(input$petrol == FALSE & input$cng == FALSE & input$lng == TRUE){
-      stationssubset <- stations[stations$stationtype == "lng" | stations$stationtype == "terminal",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    }else if(input$petrol == TRUE & input$cng == TRUE & input$lng == FALSE){
-      stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal" | stations$stationtype == "cng",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    }else if(input$petrol == TRUE & input$cng == FALSE & input$lng == TRUE){
-      stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal" | stations$stationtype == "lng",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
-    }else if(input$petrol == FALSE & input$cng == TRUE & input$lng == TRUE){
-      stationssubset <- stations[stations$stationtype == "cng" | stations$stationtype == "terminal" | stations$stationtype == "lng",]
-      leafletProxy("map",data = stationssubset)%>%
-        clearShapes() %>%
-        clearMarkers() %>%
-        addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+            clearShapes() %>%
+            clearMarkers() %>%
+            addMarkers(data = output_df,~lon.x, ~lat.x,layerId=~id) %>%
+            addAwesomeMarkers(data = output_df,~lon.y, ~lat.y,layerId=~min.terminals_join,icon = gasicon) 
+    for(i in 1:nrow(output_df)){
+            map %>% addPolylines(data= output_df,
+                                 lat = as.numeric(output_df[i, c(4, 7)]),
+                                 lng = as.numeric(output_df[i, c(3, 6)]),
+                                 weight = 2,
+                                 color = "#66ccff",
+                                 layerId = ~min.terminals_join+1)
     }
+    #addPolylines(data = output_df, lng = ~lon.x, lat = ~lat.x,color = "#66ccff",weight = 1,layerId = ~min.terminals_join+1)
   })
-  
-  # Show a popup at the given location
-  showStationPopup <- function(id, lat, lng) {
-    station <- stations[stations$id == id,]
-    
-    if(station$stationtype == "terminal"){
-      content <- as.character(tagList(
-        tags$h3("Terminal info"),
-        tags$h6("Name: ",station$name),
-        tags$h6("Longitude: ",station$lon),
-        tags$h6("Latitude: ",station$lat)
-      ))
-    }else{
-      content <- as.character(tagList(
-        tags$h3("Station info"),
-        tags$h6("Name: ",station$name),
-        tags$h6("Fueltype: ", station$fueltype),
-        tags$h6("Status: ",station$status),
-        tags$h6("Longitude: ",station$lon),
-        tags$h6("Latitude: ",station$lat)
-      ))
-    }
-    leafletProxy("map") %>% addPopups(lng, lat, content, layerId = id)
-  }
-  
-  # When a dot is clicked show info on station
-  observe({
-    leafletProxy("map") %>% clearPopups()
-    event <- input$map_shape_click
-    
-    if (is.null(event))
-      return()
-    isolate({
-      showStationPopup(event$id, event$lat, event$lng)
-    })
-  })
-  
-  observe({
-    leafletProxy("map") %>% clearPopups()
-    event <- input$map_marker_click
-    
-    if (is.null(event))
-      return()
-    isolate({
-      showStationPopup(event$id, event$lat, event$lng)
-    })
-  })
-  
-  
-  ## Data Explorer ###########################################
-  output$ziptable <- DT::renderDataTable({
-    DT::datatable(stations)
-  })
+        
+        #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        #XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        
+        ## Interactive Map ###########################################
+        #gasicon = makeIcon("gas.png", 50, 50)
+        gasicon <- awesomeIcons(
+                icon = 'car',
+                iconColor = 'black',
+                library = 'ion',
+                markerColor = '#ff0000'
+        )
+        
+        # Create the map
+        output$map <- renderLeaflet({
+                leaflet() %>%
+                        addTiles(
+                                urlTemplate = "//{s}.tiles.mapbox.com/v3/jcheng.map-5ebohr46/{z}/{x}/{y}.png",
+                                attribution = 'Maps by <a href="http://www.mapbox.com/">Mapbox</a>'
+                        ) %>%
+                        setView(lng = 4.9, lat = 50.45, zoom = 8.2)
+        })
+        
+        # A reactive expression that returns the set of zips that are
+        # in bounds right now
+        zipsInBounds <- reactive({
+                if (is.null(input$map_bounds))
+                        return(zipdata[FALSE,])
+                bounds <- input$map_bounds
+                latRng <- range(bounds$north, bounds$south)
+                lngRng <- range(bounds$east, bounds$west)
+                
+                subset(zipdata,
+                       latitude >= latRng[1] & latitude <= latRng[2] &
+                               longitude >= lngRng[1] & longitude <= lngRng[2])
+        })
+        leafletProxy("map",data = stations)%>%
+                addLegend("bottomright", colors = palcustom, labels = labcustom,
+                          title = "Fueling stations",
+                          opacity = 1
+                )%>%
+                addMeasure(
+                        position = "bottomleft",
+                        primaryLengthUnit = "meters",
+                        primaryAreaUnit = "sqmeters",
+                        activeColor = "#3D535D",
+                        completedColor = "#7D4479")
+        
+        # This observer is responsible for maintaining the circles and legend,
+        # Color of dots based on type of station
+        # Selection given for requested data
+        observe({
+                
+                if(input$petrol == TRUE & input$cng == TRUE & input$lng == TRUE){
+                        leafletProxy("map",data = stations)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                } else if(input$petrol == FALSE & input$cng == FALSE & input$lng == FALSE){
+                        stationssubset <- stations[stations$stationtype == "terminal",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                } else if(input$petrol == TRUE & input$cng == FALSE & input$lng == FALSE){
+                        stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                }else if(input$petrol == FALSE & input$cng == TRUE & input$lng == FALSE){
+                        stationssubset <- stations[stations$stationtype == "cng" | stations$stationtype == "terminal",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                }else if(input$petrol == FALSE & input$cng == FALSE & input$lng == TRUE){
+                        stationssubset <- stations[stations$stationtype == "lng" | stations$stationtype == "terminal",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                }else if(input$petrol == TRUE & input$cng == TRUE & input$lng == FALSE){
+                        stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal" | stations$stationtype == "cng",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                }else if(input$petrol == TRUE & input$cng == FALSE & input$lng == TRUE){
+                        stationssubset <- stations[stations$stationtype == "petrol" | stations$stationtype == "terminal" | stations$stationtype == "lng",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                }else if(input$petrol == FALSE & input$cng == TRUE & input$lng == TRUE){
+                        stationssubset <- stations[stations$stationtype == "cng" | stations$stationtype == "terminal" | stations$stationtype == "lng",]
+                        leafletProxy("map",data = stationssubset)%>%
+                                clearShapes() %>%
+                                clearMarkers() %>%
+                                addCircles(~lon, ~lat,layerId=~id,radius = 4,color = ~mapcolor)
+                }
+        })
+        
+        # Show a popup at the given location
+        showStationPopup <- function(id, lat, lng) {
+                station <- stations[stations$id == id,]
+                
+                if(station$stationtype == "terminal"){
+                        content <- as.character(tagList(
+                                tags$h3("Terminal info"),
+                                tags$h6("Name: ",station$name),
+                                tags$h6("Longitude: ",station$lon),
+                                tags$h6("Latitude: ",station$lat)
+                        ))
+                }else{
+                        content <- as.character(tagList(
+                                tags$h3("Station info"),
+                                tags$h6("Name: ",station$name),
+                                tags$h6("Fueltype: ", station$fueltype),
+                                tags$h6("Status: ",station$status),
+                                tags$h6("Longitude: ",station$lon),
+                                tags$h6("Latitude: ",station$lat)
+                        ))
+                }
+                leafletProxy("map") %>% addPopups(lng, lat, content, layerId = id)
+        }
+        
+        # When a dot is clicked show info on station
+        observe({
+                leafletProxy("map") %>% clearPopups()
+                event <- input$map_shape_click
+                
+                if (is.null(event))
+                        return()
+                isolate({
+                        showStationPopup(event$id, event$lat, event$lng)
+                })
+        })
+        
+        observe({
+                leafletProxy("map") %>% clearPopups()
+                event <- input$map_marker_click
+                
+                if (is.null(event))
+                        return()
+                isolate({
+                        showStationPopup(event$id, event$lat, event$lng)
+                })
+        })
+        
+        
+        ## Data Explorer ###########################################
+        output$ziptable <- DT::renderDataTable({
+                DT::datatable(stations)
+        })
 }
